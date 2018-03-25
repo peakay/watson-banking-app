@@ -17,6 +17,7 @@ var Watson = require( 'watson-developer-cloud/conversation/v1' );
 var config = require("../../env.json");
 var myUsers = require('./cloudant_utils');
 var cloudant_credentials = require('../../env.json').cloudant;
+//useriddb contains some session info, routing number
 var useriddb = require('cloudant-quickstart')(cloudant_credentials.url, 'userids');
 var balancedb = require('cloudant-quickstart')(cloudant_credentials.url, 'balances');
 
@@ -37,7 +38,7 @@ var conversation = new Watson({
  * @param {object} res - nodejs response object
  * @param {object} next - nodejs next object - used if this routine does not provide a response
  */
-exports.response = function(req, res)
+exports.response = async function(req, res)
 {
   // set the payload base options
   var payload = { workspace_id: config.conversations.workspace, context: {}, input: {text: ""} };
@@ -60,38 +61,38 @@ exports.response = function(req, res)
         return res.send({"error": "Nothing received to process"})}
     
         // connect to the conversation workspace identified as config.conversations.workspace and ask for a response
-        conversation.message(payload, function(err, data)
+        conversation.message(payload, async function(err, data)
         {
           // return error information if the request had a problem
           if (err) {return res.status(err.code || 500).json(err); }
           // or send back the results if the request succeeded
           console.log(data)
-          if(data.context['pendingDepositAmt'] != false || data.context['pendingDepositAmt'] != 0){
-            balancedb.query({username: payload.context.username}).then(
-              function(result){
-                result = result[0]
-                console.log(result)
+          if(data.context.pendingBalance == "1"){
+            var userBalance = await getBalance(payload.context.username)
+            console.log("adding " + userBalance + " and " + data.context.pendingDepositAmt)
+            if(userBalance + parseInt(data.context.pendingDepositAmt) > 0){
+              var updatedBalance = await updateBalance(payload.context.username, userBalance, parseInt(data.context.pendingDepositAmt))
 
-                if(parseInt(result.balance) + parseInt(data.context['pendingDepositAmt']) < 0){
-                  console.log("You can't withdraw more than you have!")
-                  data.output['text'] = ["Your withdraw of " + data.context['pendingDepositAmt'] + "$ is greater than your posted balance of " + parseInt(result.balance) + "$"]
-                }else{
-                  balancedb.update(result._id, {balance: parseInt(result.balance) + parseInt(data.context['pendingDepositAmt']) }, true).then(console.log)
-                }
-                data.context.pendingDepositAmt = 0
+            }else{
+              data.output['text'] = ["Your withdraw of " + data.context['pendingDepositAmt'] + "$ is greater than your posted balance of " + parseInt(userBalance) + "$"]
+            }
+   
+          }else if(data.context.getBalance == "1"){
+            var userBalance = await getBalance(payload.context.username)
+            data.output['text'] = ['Your current posted balance is: ' + userBalance + '$']
 
-              }
+          }else if(data.context.getRouting == "1"){
+            var routingNumber = await getRoutingNumber(payload.context.username)
+            data.output['text'] = ['Your routing number is: ' + routingNumber]
 
-            ).then(
-              function(final){
-                return res.json(data);
-              }
-            )
-            
-            
-          }else{
-            return res.json(data);
           }
+          //regardless of failure, reset the pending stats
+          data.context.pendingBalance = 0
+          data.context.pendingDepositAmt = 0
+          data.context.getBalance = 0
+          data.context.getRouting = 0
+          return res.json(data);
+          
           
         });
     }
@@ -104,9 +105,10 @@ exports.response = function(req, res)
 
 }
 
-var updateBalance = function(username, oldBalance, newBalance){
-  balancedb.update(username, {balance: parseInt(oldBalance) + parseInt(newBalance) }, true).then(console.log)
+var updateBalance = async function(username, oldBalance, newBalance){
+  var update = await balancedb.update(username, {balance: parseInt(oldBalance) + parseInt(newBalance) }, true)
 
+  return "done!"
   
 }
 var getId = function(username){
@@ -116,16 +118,19 @@ var getId = function(username){
     }
   )
 }
-var getBalance = function(username){
-  balancedb.get(username).then(
-    function (result){
-      return result[0].balance
+var getRoutingNumber = async function(username){
+  var routing = await useriddb.get(username)
+  return routing.routingnum
 
-    }
-  ).catch(
-    function(err){
-      console.log("some error occured in fetching balances " + err)
-    }
 
-  )
+}
+var getBalance = async function(username){
+  console.log("Getting balance " + username)
+  var balance = await balancedb.get(username)
+  return balance.balance
+}
+
+var transferBalance = function(user1, user2, amount){
+//transfers amount from user1 to user2
+
 }
