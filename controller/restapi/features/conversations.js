@@ -20,6 +20,7 @@ var cloudant_credentials = require('../../env.json').cloudant;
 //useriddb contains some session info, routing number
 var useriddb = require('cloudant-quickstart')(cloudant_credentials.url, 'userids');
 var balancedb = require('cloudant-quickstart')(cloudant_credentials.url, 'balances');
+var contextdb = require('cloudant-quickstart')(cloudant_credentials.url, 'context');
 
 var conversation = new Watson({
   username: config.conversations.username,
@@ -45,8 +46,10 @@ exports.response = async function(req, res)
 
   useriddb.query({session: req.session.id}).then(
     function(result){
+
+
       payload.context.username = result[0]._id    
-      console.log(payload.context.username)
+      
 
     } 
   ).then(
@@ -63,10 +66,14 @@ exports.response = async function(req, res)
         // connect to the conversation workspace identified as config.conversations.workspace and ask for a response
         conversation.message(payload, async function(err, data)
         {
+
+          
           // return error information if the request had a problem
           if (err) {return res.status(err.code || 500).json(err); }
           // or send back the results if the request succeeded
           console.log(data)
+
+
           if(data.context.pendingBalance == "1"){
             var userBalance = await getBalance(payload.context.username)
             console.log("adding " + userBalance + " and " + data.context.pendingDepositAmt)
@@ -77,11 +84,14 @@ exports.response = async function(req, res)
               data.output['text'] = ["Your withdraw of " + data.context['pendingDepositAmt'] + "$ is greater than your posted balance of " + parseInt(userBalance) + "$"]
             }
    
-          }else if(data.context.getBalance == "1"){
-            var userBalance = await getBalance(payload.context.username)
-            data.output['text'] = ['Your current posted balance is: ' + userBalance + '$']
+          }
 
-          }else if(data.context.getRouting == "1"){
+          if(data.context.getBalance == "1"){
+            var userBalance = await getBalance(payload.context.username)
+            data.output['text'] += ['Your current posted balance is: ' + userBalance + '$']
+
+          }
+          if(data.context.getRouting == "1"){
             var routingNumber = await getRoutingNumber(payload.context.username)
             data.output['text'] = ['Your routing number is: ' + routingNumber]
 
@@ -91,6 +101,7 @@ exports.response = async function(req, res)
           data.context.pendingDepositAmt = 0
           data.context.getBalance = 0
           data.context.getRouting = 0
+
           return res.json(data);
           
           
@@ -132,5 +143,22 @@ var getBalance = async function(username){
 
 var transferBalance = function(user1, user2, amount){
 //transfers amount from user1 to user2
+
+}
+
+var updateContext = async function(id, contextNew){
+//id in this case refers to userids.session
+  await sessiondb.update(id, {context: contextNew}, true)
+
+  return "done!"
+
+}
+
+var getContext = async function(id){
+  console.log(id)
+  var session = await sessiondb.get(id).then(console.log)
+
+  return session
+
 
 }

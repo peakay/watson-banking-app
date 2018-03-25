@@ -67,7 +67,7 @@ exports.register = function(req, res, next)
     var user = null; user = JSON.parse(_user);
     var regMsg = "";
     if((error) || ((typeof(user.error) != 'undefined') && (user.error != null)))
-      {myUsers.insert(u_db, uid, {"_id": uid, "pw": pw, "session": getCookieValue(req.headers.cookie, "connect.sid"), "routingnum" : Math.floor(1000000 + Math.random() * 9000000), "authenticated": false},
+      {myUsers.insert(u_db, uid, {"_id": uid, "pw": pw, "session": getCookieValue(req.headers.cookie, "connect.sid"), "routingnum" : Math.floor(1000000 + Math.random() * 9000000), "usersetup": false, "authenticated": false},
         function(error, body)
           {
             if (typeof(body.error) != 'undefined') {regMsg = body.error;}

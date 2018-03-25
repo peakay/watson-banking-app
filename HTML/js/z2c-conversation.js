@@ -58,15 +58,13 @@ function getResponse(_text)
   // initialize options
    var options = {};
    options.input = _text;
-   options.context = _context;
-   console.log(_context.username)
+
    // request the next step from our nodejs server
    $.when($.post("/api/response", options)).then(
      function(res, _type, _jqXHR)
      {
        // this function is entered if the request was successful
        console.log("z2c-conversations.js getMessage Success res "+res.output.text);
-       _context=res.context;
        _conversation.append('<div class="shape bubble2"><p>'+res.output.text+"</p></div>");
        scrollDown()
      },
