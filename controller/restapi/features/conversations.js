@@ -18,6 +18,8 @@ var config = require("../../env.json");
 var myUsers = require('./cloudant_utils');
 var cloudant_credentials = require('../../env.json').cloudant;
 var useriddb = require('cloudant-quickstart')(cloudant_credentials.url, 'userids');
+var balancedb = require('cloudant-quickstart')(cloudant_credentials.url, 'balances');
+
 var conversation = new Watson({
   username: config.conversations.username,
   password: config.conversations.password,
@@ -60,11 +62,42 @@ exports.response = function(req, res)
         // connect to the conversation workspace identified as config.conversations.workspace and ask for a response
         conversation.message(payload, function(err, data)
         {
-          console.log(payload.context.username)
           // return error information if the request had a problem
           if (err) {return res.status(err.code || 500).json(err); }
           // or send back the results if the request succeeded
-          return res.json(data);
+          console.log(data)
+          if(data.context['pendingDepositAmt'] != false || data.context['pendingDepositAmt'] != 0){
+            balancedb.query({username: payload.context.username}).then(
+              function(result){
+                result = result[0]
+                console.log(result)
+
+                if(parseInt(result.balance) + parseInt(data.context['pendingDepositAmt']) < 0){
+                  console.log("You can't withdraw more than you have!")
+                  data.output['text'] = ["Your withdraw of " + data.context['pendingDepositAmt'] + "$ is greater than your posted balance of " + parseInt(result.balance) + "$"]
+                }else{
+                  balancedb.update(result._id, {balance: parseInt(result.balance) + parseInt(data.context['pendingDepositAmt']) }, true).then(console.log)
+                }
+
+                
+
+
+                data.context.pendingDepositAmt = 0
+              
+              }
+
+            ).then(
+              function(final){
+                return res.json(data);
+              }
+              
+            )
+            
+            
+          }else{
+            return res.json(data);
+          }
+          
         });
     }
 
@@ -75,3 +108,4 @@ exports.response = function(req, res)
   )
 
 }
+

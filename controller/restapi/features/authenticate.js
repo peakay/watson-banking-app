@@ -18,6 +18,9 @@ var secret = require('../../env.json').sessionSecret;
 // const cipher = encrypt.createCipher('aes192', secret);
 // const decipher = encrypt.createDecipher('aes192', secret);
 
+var cloudant_credentials = require('../../env.json').cloudant;
+var balancedb = require('cloudant-quickstart')(cloudant_credentials.url, 'balances');
+
 var myUsers = require('./cloudant_utils');
 var u_db = 'userids';
 myUsers.authenticate(myUsers.create, u_db);
@@ -68,12 +71,20 @@ exports.register = function(req, res, next)
         function(error, body)
           {
             if (typeof(body.error) != 'undefined') {regMsg = body.error;}
-            else {regMsg = "Welcome! Registration for UserID: "+uid+" completed successfully. Please log in with your new id.";}
+            else {
+              regMsg = "Welcome! Registration for UserID: "+uid+" completed successfully. Please log in with your new id.";
+              balancedb.insert({username: uid, balance: 100}).then(console.log)
+            
+            }
            res.send(regMsg);
         });
       }
     else{ regMsg = "user: "+uid+" already exists in db"; console.log(regMsg); res.send(regMsg);}
   });
+
+  
+
+
 }
 exports.logout = function(req, res, next)
 {
