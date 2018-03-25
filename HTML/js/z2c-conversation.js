@@ -31,8 +31,8 @@ function initiateConversation()
   _conversation = $("#conversation");
   _conversation.empty()
   // start the conversation with Watson
-  getResponse("Hi There!");
-  console.log("hello")
+  getResponse("hello");
+
 }
 
 /**
@@ -59,6 +59,7 @@ function getResponse(_text)
    var options = {};
    options.input = _text;
    options.context = _context;
+   console.log(_context.username)
    // request the next step from our nodejs server
    $.when($.post("/api/response", options)).then(
      function(res, _type, _jqXHR)
