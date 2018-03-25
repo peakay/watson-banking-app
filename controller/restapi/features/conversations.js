@@ -78,19 +78,14 @@ exports.response = function(req, res)
                 }else{
                   balancedb.update(result._id, {balance: parseInt(result.balance) + parseInt(data.context['pendingDepositAmt']) }, true).then(console.log)
                 }
-
-                
-
-
                 data.context.pendingDepositAmt = 0
-              
+
               }
 
             ).then(
               function(final){
                 return res.json(data);
               }
-              
             )
             
             
@@ -109,3 +104,28 @@ exports.response = function(req, res)
 
 }
 
+var updateBalance = function(username, oldBalance, newBalance){
+  balancedb.update(username, {balance: parseInt(oldBalance) + parseInt(newBalance) }, true).then(console.log)
+
+  
+}
+var getId = function(username){
+  balancedb.query({username: payload.context.username}).then(
+    function(result){
+      return result[0]._id
+    }
+  )
+}
+var getBalance = function(username){
+  balancedb.get(username).then(
+    function (result){
+      return result[0].balance
+
+    }
+  ).catch(
+    function(err){
+      console.log("some error occured in fetching balances " + err)
+    }
+
+  )
+}

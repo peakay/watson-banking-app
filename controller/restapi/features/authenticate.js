@@ -73,7 +73,7 @@ exports.register = function(req, res, next)
             if (typeof(body.error) != 'undefined') {regMsg = body.error;}
             else {
               regMsg = "Welcome! Registration for UserID: "+uid+" completed successfully. Please log in with your new id.";
-              balancedb.insert({username: uid, balance: 100}).then(console.log)
+              balancedb.insert({_id: uid, balance: 100}).then(console.log)
             
             }
            res.send(regMsg);
@@ -81,9 +81,7 @@ exports.register = function(req, res, next)
       }
     else{ regMsg = "user: "+uid+" already exists in db"; console.log(regMsg); res.send(regMsg);}
   });
-
   
-
 
 }
 exports.logout = function(req, res, next)
