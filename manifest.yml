@@ -3,8 +3,8 @@ applications:
   memory: 256M
   instances: 1
   domain: mybluemix.net
-  name: Z2C
-  host: Z2C
+  name: watson-swiss-banking-app
+  host: watson-swiss-banking-app
   disk_quota: 1024M
   services:
     - Speech to Text-xx
