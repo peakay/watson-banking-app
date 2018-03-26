@@ -20,6 +20,7 @@ var secret = require('../../env.json').sessionSecret;
 
 var cloudant_credentials = require('../../env.json').cloudant;
 var balancedb = require('cloudant-quickstart')(cloudant_credentials.url, 'balances');
+var contextdb = require('cloudant-quickstart')(cloudant_credentials.url, 'context');
 
 var myUsers = require('./cloudant_utils');
 var u_db = 'userids';
@@ -29,6 +30,8 @@ exports.authenticate = function(req, res, next)
   var decipher = encrypt.createDecipher('aes192', secret);
   myUsers.get(u_db, req.body.uid, function(error, user)
     { var userProfile = user;
+      console.log(userProfile)
+
       var getUIDres = JSON.parse(user);
       var authMsg = "";
       if(error || (typeof(getUIDres.error) != 'undefined' ))
@@ -38,11 +41,16 @@ exports.authenticate = function(req, res, next)
         var decrypted = decipher.update(getUIDres.pw, 'hex', 'utf8');
         decrypted += decipher.final('utf8');
         if (decrypted == req.body.pw)
-        {authMsg = "success";
+        {
+          
+          
+          
+          authMsg = "success";
           res.status(200).send(authMsg);
           var _profile = JSON.parse(userProfile);
           _profile.authenticated = true;
           var fullSession = getCookieValue(req.headers.cookie, "connect.sid").split(".");
+          console.log("new cookie? :" + fullSession)
           _profile.session = fullSession[0].substring(4);
 
           myUsers.update(u_db, _profile._id, _profile,
@@ -67,13 +75,14 @@ exports.register = function(req, res, next)
     var user = null; user = JSON.parse(_user);
     var regMsg = "";
     if((error) || ((typeof(user.error) != 'undefined') && (user.error != null)))
-      {myUsers.insert(u_db, uid, {"_id": uid, "pw": pw, "session": getCookieValue(req.headers.cookie, "connect.sid"), "routingnum" : Math.floor(1000000 + Math.random() * 9000000), "authenticated": false},
+      {myUsers.insert(u_db, uid, {"_id": uid, "pw": pw, "session": getCookieValue(req.headers.cookie, "connect.sid"), "routingnum" : [Math.floor(1000000 + Math.random() * 9000000)], "usersetup": false, "authenticated": false},
         function(error, body)
           {
             if (typeof(body.error) != 'undefined') {regMsg = body.error;}
             else {
               regMsg = "Welcome! Registration for UserID: "+uid+" completed successfully. Please log in with your new id.";
               balancedb.insert({_id: uid, balance: 100}).then(console.log)
+              contextdb.insert({_id: uid, context : {}})
             
             }
            res.send(regMsg);
