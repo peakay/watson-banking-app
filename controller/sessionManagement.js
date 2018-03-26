@@ -20,6 +20,7 @@ mySession.authenticate(mySession.create, 'session', 'clear');
 exports.SessionObject = {
  s_db : 'session',
  sessionData : null,
+
  all: function all(cbfn)
  {
    mySession.listAllDocuments(this.s_db, function(_error, _sessions){if (typeof(cbfn) == 'function') {cbfn(_error, _sessions);}});
@@ -115,6 +116,7 @@ createSession : function createSession(req, session)
      }
    req.session = sess.req.session;
    req.session.cookie = sess.cookie;
+   console.log("session created")
    return req.session;
  },
 Cookie :  function Cookie (options) {

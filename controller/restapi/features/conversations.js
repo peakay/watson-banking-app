@@ -66,17 +66,14 @@ exports.response = async function(req, res)
       if (err) {return res.status(err.code || 500).json(err); }
       // or send back the results if the request succeeded
 
-
-      console.log(data.context)
-
       if(data.context.pendingBalance == "1"){
         var userBalance = await getBalance(payload.context.username)
         console.log("adding " + userBalance + " and " + data.context.pendingDepositAmt)
-        if(userBalance + parseInt(data.context.pendingDepositAmt) > 0){
-          var updatedBalance = await updateBalance(payload.context.username, userBalance, parseInt(data.context.pendingDepositAmt))
+        if(userBalance + parseFloat(data.context.pendingDepositAmt) > 0){
+          var updatedBalance = await updateBalance(payload.context.username, userBalance, parseFloat(data.context.pendingDepositAmt))
 
         }else{
-          data.output['text'] = ["Your withdraw of " + data.context['pendingDepositAmt'] + "$ is greater than your posted balance of " + parseInt(userBalance) + "$", "Please try with a lesser amount of money!"]
+          data.output['text'] = ["Your withdraw of " + data.context['pendingDepositAmt'] + "$ is greater than your posted balance of " + parseFloat(userBalance) + "$", "Please try with a lesser amount of money!"]
         }
         data.context.pendingDepositAmt = 0
 
@@ -84,7 +81,6 @@ exports.response = async function(req, res)
 
       if(data.context.getBalance == "1"){
         var userBalance = await getBalance(payload.context.username)
-        console.log(data.output['text'])
         data.output['text'] += ['Your current posted balance is: ' + userBalance + '$']
 
       }
@@ -95,9 +91,27 @@ exports.response = async function(req, res)
       }
 
       if(data.context.pendingTransfer == "1"){
-        await transferBalance(data.context.username, data.context.pendingRoutingNum, data.context.pendingTransferAmt)
+        var userBalance = await getBalance(payload.context.username)
+        if(data.context.pendingTransferAmt > userBalance){
+          data.output['text'] = ['Not enough balance for this transfer request!']
+        }else{
+          await transferBalance(data.context.username, data.context.pendingRoutingNum, data.context.pendingTransferAmt)
+
+        }
+
+
         data.context.pendingTransferAmt = 0
         data.context.pendingRoutingNum = 0
+
+      }
+
+      if(data.context.makeNewRouting == "1"){
+        var newNum = await makeNewRouting(payload.context.username)
+
+      
+        console.log("new routing made")
+        data.output['text'] += " Your new routing number is: " + String(newNum)
+        data.context.makeNewRouting = 0
 
       }
       //regardless of failure, reset the pending stats
@@ -113,7 +127,7 @@ exports.response = async function(req, res)
 }
 
 var updateBalance = async function(username, oldBalance, newBalance){
-  var update = await balancedb.update(username, {balance: parseInt(oldBalance) + parseInt(newBalance) }, true)
+  var update = await balancedb.update(username, {balance: parseFloat(oldBalance) + parseFloat(newBalance) }, true)
 
   return "done!"
   
@@ -137,21 +151,31 @@ var getRoutingNumber = async function(username){
   return routing.routingnum
 
 }
+var makeNewRouting = async function(username){
+  var newNum = Math.floor(1000000 + Math.random() * 9000000)
+  var oldNums = await getRoutingNumber(username)
+  oldNums.push(newNum)
+  
+  
+  await useriddb.update(username, {routingnum: oldNums}, true)
+  return newNum
 
+}
 var findUserfromRouting = async function(routingNum){
-  var username = await useriddb.query({routingnum: routingNum}).catch(
-    function(err){
-      console.log("user not found " + err)
-      return false
-    }
-  )
+  //this is gonna be awful
+  var allUsers = await useriddb.all()
+  var userid = false
+  allUsers.forEach(function(user){
+    console.log(user.routingnum)
+    user.routingnum.forEach(function(x){
+      if(x == routingNum){
+        console.log("transferring to " + user._id)
+        userid = user._id
+      }
+    })
 
-  if(username.length == 0){
-    return false
-  }
-  console.log(username)
-  return username[0]._id
-
+  })
+  return userid
 }
 var getBalance = async function(username){
   console.log("Getting balance " + username)
@@ -163,6 +187,7 @@ var transferBalance = async function(yourUser, otherRoutingNum, amount){
 //transfers amount from your routing number to another routing num, no ACH necessary!
 
   var otherUser = await findUserfromRouting(otherRoutingNum)
+  console.log("otherUser = " + otherUser)
   var yourBalance = await getBalance(yourUser)
   await updateBalance(yourUser, yourBalance, -amount)
 
