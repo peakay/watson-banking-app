@@ -7,5 +7,5 @@ applications:
   host: watson-swiss-banking-app
   disk_quota: 1024M
   services:
-    - Cloudant NoSQL DB-xx
-    - Conversation-xx
+    - Cloudant NoSQL DB-r4
+    - Watson Assistant (formerly Conversation)-7q
