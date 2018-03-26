@@ -65,6 +65,7 @@ function getResponse(_text)
      {
        // this function is entered if the request was successful
        console.log("z2c-conversations.js getMessage Success res "+res.output.text);
+       
        _conversation.append('<div class="shape bubble2"><p>'+res.output.text+"</p></div>");
        scrollDown()
      },

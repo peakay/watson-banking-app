@@ -20,6 +20,7 @@ var secret = require('../../env.json').sessionSecret;
 
 var cloudant_credentials = require('../../env.json').cloudant;
 var balancedb = require('cloudant-quickstart')(cloudant_credentials.url, 'balances');
+var contextdb = require('cloudant-quickstart')(cloudant_credentials.url, 'context');
 
 var myUsers = require('./cloudant_utils');
 var u_db = 'userids';
@@ -74,6 +75,7 @@ exports.register = function(req, res, next)
             else {
               regMsg = "Welcome! Registration for UserID: "+uid+" completed successfully. Please log in with your new id.";
               balancedb.insert({_id: uid, balance: 100}).then(console.log)
+              contextdb.insert({_id: uid, context : {}})
             
             }
            res.send(regMsg);
