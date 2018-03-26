@@ -7,13 +7,5 @@ applications:
   host: watson-swiss-banking-app
   disk_quota: 1024M
   services:
-    - Speech to Text-xx
-    - Text to Speech-xx
-    - Natural Language Classifier-xx
     - Cloudant NoSQL DB-xx
-    - AlchemyAPI-xx
-    - Retrieve and Rank-xx
     - Conversation-xx
-    - Visual Recognition-xx
-    - Streaming Analytics-xx
-    - Secure Gateway-xx
