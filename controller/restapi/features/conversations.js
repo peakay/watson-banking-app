@@ -20,6 +20,7 @@ var cloudant_credentials = require('../../env.json').cloudant;
 //useriddb contains some session info, routing number
 var useriddb = require('cloudant-quickstart')(cloudant_credentials.url, 'userids');
 var balancedb = require('cloudant-quickstart')(cloudant_credentials.url, 'balances');
+var contextdb = require('cloudant-quickstart')(cloudant_credentials.url, 'context');
 
 var conversation = new Watson({
   username: config.conversations.username,
@@ -43,67 +44,79 @@ exports.response = async function(req, res)
   // set the payload base options
   var payload = { workspace_id: config.conversations.workspace, context: {}, input: {text: ""} };
 
-  useriddb.query({session: req.session.id}).then(
-    function(result){
-      payload.context.username = result[0]._id    
-      console.log(payload.context.username)
+  // if req.body exists, then check for text and context information. use them if they are present
+  if (req.body) {
+    if (req.body.input) { payload.input.text = req.body.input; }
 
-    } 
-  ).then(
-    function(test){
-      if (req.body) {
-        if (req.body.input) { payload.input.text = req.body.input; }
-        if (req.body.context) { 
-          payload.context = req.body.context; 
+  } else {
+    return res.send({"error": "Nothing received to process"})}
+
+  var username = await getUsername(req.session.id)
+
+
+  payload.context = await getContext(username)
+  payload.context.username = username
+  console.log(payload.context)
+  
+
+    // connect to the conversation workspace identified as config.conversations.workspace and ask for a response
+  conversation.message(payload, async function(err, data)
+    {
+      // return error information if the request had a problem
+      if (err) {return res.status(err.code || 500).json(err); }
+      // or send back the results if the request succeeded
+
+
+      console.log(data.context)
+
+      if(data.context.pendingBalance == "1"){
+        var userBalance = await getBalance(payload.context.username)
+        console.log("adding " + userBalance + " and " + data.context.pendingDepositAmt)
+        if(userBalance + parseInt(data.context.pendingDepositAmt) > 0){
+          var updatedBalance = await updateBalance(payload.context.username, userBalance, parseInt(data.context.pendingDepositAmt))
+
+        }else{
+          data.output['text'] = ["Your withdraw of " + data.context['pendingDepositAmt'] + "$ is greater than your posted balance of " + parseInt(userBalance) + "$", "Please try with a lesser amount of money!"]
         }
-    
-      } else {
-        return res.send({"error": "Nothing received to process"})}
-    
-        // connect to the conversation workspace identified as config.conversations.workspace and ask for a response
-        conversation.message(payload, async function(err, data)
-        {
-          // return error information if the request had a problem
-          if (err) {return res.status(err.code || 500).json(err); }
-          // or send back the results if the request succeeded
-          console.log(data)
-          if(data.context.pendingBalance == "1"){
-            var userBalance = await getBalance(payload.context.username)
-            console.log("adding " + userBalance + " and " + data.context.pendingDepositAmt)
-            if(userBalance + parseInt(data.context.pendingDepositAmt) > 0){
-              var updatedBalance = await updateBalance(payload.context.username, userBalance, parseInt(data.context.pendingDepositAmt))
 
-            }else{
-              data.output['text'] = ["Your withdraw of " + data.context['pendingDepositAmt'] + "$ is greater than your posted balance of " + parseInt(userBalance) + "$"]
-            }
-   
-          }else if(data.context.getBalance == "1"){
-            var userBalance = await getBalance(payload.context.username)
-            data.output['text'] = ['Your current posted balance is: ' + userBalance + '$']
+      }
 
-          }else if(data.context.getRouting == "1"){
-            var routingNumber = await getRoutingNumber(payload.context.username)
-            data.output['text'] = ['Your routing number is: ' + routingNumber]
+      if(data.context.getBalance == "1"){
+        var userBalance = await getBalance(payload.context.username)
+        console.log(data.output['text'])
+        data.output['text'] += ['Your current posted balance is: ' + userBalance + '$']
 
-          }
-          //regardless of failure, reset the pending stats
-          data.context.pendingBalance = 0
-          data.context.pendingDepositAmt = 0
-          data.context.getBalance = 0
-          data.context.getRouting = 0
-          return res.json(data);
-          
-          
-        });
-    }
+      }
+      if(data.context.getRouting == "1"){
+        var routingNumber = await getRoutingNumber(payload.context.username)
+        data.output['text'] = ['Your routing number is: ' + routingNumber]
 
-  ).catch(
-    function(err){
-      return "user not found!"
-    }
-  )
+      }
+      //regardless of failure, reset the pending stats
+      data.context.pendingBalance = 0
+      data.context.pendingDepositAmt = 0
+      data.context.getBalance = 0
+      data.context.getRouting = 0
 
+
+
+
+
+
+
+
+
+
+
+      await updateContext(username, data.context)
+
+      return res.json(data);
+    });
 }
+
+
+
+
 
 var updateBalance = async function(username, oldBalance, newBalance){
   var update = await balancedb.update(username, {balance: parseInt(oldBalance) + parseInt(newBalance) }, true)
@@ -117,6 +130,13 @@ var getId = function(username){
       return result[0]._id
     }
   )
+}
+
+var getUsername = async function(sessionid){
+  var username = await useriddb.query({session: sessionid})
+  console.log(username)
+  return username[0]._id
+
 }
 var getRoutingNumber = async function(username){
   var routing = await useriddb.get(username)
@@ -132,5 +152,26 @@ var getBalance = async function(username){
 
 var transferBalance = function(user1, user2, amount){
 //transfers amount from user1 to user2
+
+}
+
+var updateContext = async function(username, contextNew){
+
+  await contextdb.update(username, contextNew).catch("update context error")
+
+  return "done!"
+
+}
+
+var insertContext = async function(user, contextNew){
+  await contextdb.insert({username: user, conversation_id: context.conversation_id, context: contextNew})
+  return "done!"
+
+}
+
+var getContext = async function(id){
+  console.log(id)
+  var context = await contextdb.get(id).catch(function(err){console.log("get context error " + err)})
+  return context
 
 }
