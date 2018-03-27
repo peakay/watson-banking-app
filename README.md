@@ -7,8 +7,12 @@ https://watson-swiss-banking-app.mybluemix.net/
 
 ## instructions
 
-git clone this directory
-Make your own env.json in /controller
-npm install
-node index.js
+  1. git clone this directory
+
+  2. Make your own env.json in the controller directory. Requires keys from Watson Assistant, Cloudant.
+
+  3. npm install
+
+  4. node index.js
+
 
