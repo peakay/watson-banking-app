@@ -53,7 +53,7 @@ exports.response = async function(req, res)
 
   var username = await getUsername(req.session.id)
 
-
+  //reduces attack surface by storing context in the cloud!
   payload.context = await getContext(username)
   payload.context.username = username
   console.log(payload.context)
